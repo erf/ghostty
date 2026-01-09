@@ -22,12 +22,40 @@ const oni = @import("oniguruma");
 ///
 /// There are many complicated cases where these heuristics break down, but
 /// handling them well requires a non-regex approach.
+// Character class for path components
+const path_chars =
+    \\[\w\-.~:\/?#@!$&*+,;=%]
+;
+
+// Path pattern with file extensions (contains a dot)
+const path_with_ext =
+    "(?=" ++ path_chars ++ "*\\.)" ++ path_chars ++ "+(?: " ++ path_chars ++ "*[\\/.])*";
+
+// Path pattern without file extensions (no dots)
+const path_no_ext =
+    "(?!" ++ path_chars ++ "*\\.)" ++ path_chars ++ "+(?: " ++ path_chars ++ "+)*";
+
+// Common trailing spaces pattern
+const path_trailing_spaces =
+    \\(?: +(?= *$))?
+;
+
+// Combined path content (with or without extension, with optional trailing spaces)
+const path_content =
+    "(?:" ++ path_with_ext ++ path_trailing_spaces ++ "|" ++ path_no_ext ++ path_trailing_spaces ++ ")";
+
 pub const regex =
+    // URL schemes (http://, mailto:, etc.)
     "(?:" ++ url_schemes ++
     \\)(?:
     ++ ipv6_url_pattern ++
-    \\|[\w\-.~:/?#@!$&*+,;=%]+(?:[\(\[]\w*[\)\]])?)+(?<![,.])|(?:\.\.\/|\.\/|\/)(?:(?=[\w\-.~:\/?#@!$&*+,;=%]*\.)[\w\-.~:\/?#@!$&*+,;=%]+(?: [\w\-.~:\/?#@!$&*+,;=%]*[\/.])*(?: +(?= *$))?|(?![\w\-.~:\/?#@!$&*+,;=%]*\.)[\w\-.~:\/?#@!$&*+,;=%]+(?: [\w\-.~:\/?#@!$&*+,;=%]+)*(?: +(?= *$))?)|(?<!\S)[\w\-.~]+/(?:(?=[\w\-.~:\/?#@!$&*+,;=%]*\.)[\w\-.~:\/?#@!$&*+,;=%]+(?: [\w\-.~:\/?#@!$&*+,;=%]*[\/.])*(?: +(?= *$))?|(?![\w\-.~:\/?#@!$&*+,;=%]*\.)[\w\-.~:\/?#@!$&*+,;=%]+(?: [\w\-.~:\/?#@!$&*+,;=%]+)*(?: +(?= *$))?)
-    ;
+    \\|[\w\-.~:/?#@!$&*+,;=%]+(?:[\(\[]\w*[\)\]])?)+(?<![,.])|
+    // Paths starting with ../, ./, or /
+    ++ "(?:\\.\\.\\/|\\.\\/|\\/)" ++ path_content ++
+    \\|
+    // Relative paths (must start at word boundary and contain at least one /)
+    ++ "(?<!\\S)[\\w\\-.~]+\\/" ++ path_content;
+
 const url_schemes =
     \\https?://|mailto:|ftp://|file:|ssh:|git://|ssh://|tel:|magnet:|ipfs://|ipns://|gemini://|gopher://|news:
 ;
